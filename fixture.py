@@ -1,57 +1,79 @@
 import random, math
+import numpy as np
 
 def luckydraw(category):
-    return category[random.randint(0, len(category)-1)]
-
-def remove_called_players(category, team):
-    for j, player in enumerate(category):
-        if player in team:
-            category.remove(player)
-            return category
-    return category
+    if len(category.members) == 0:
+        return None
+    return random.choice(category.members)
 
 def choose_and_remove(category, team):
-    team.append(luckydraw(category))
-    new_category = remove_called_players(category, team)
-    return new_category, team
+    chosen_player = luckydraw(category)
 
-def create_fixture(women, setter, men, existing_team, count):
-    team = []
-    next_women = remove_called_players(women, existing_team)
-    next_setter = remove_called_players(setter, existing_team)
-    next_men = remove_called_players(men, existing_team)
+    if chosen_player is None:
+        return category, team  # nothing to remove
 
-    next_new_women, team = choose_and_remove(next_women, team)
-    next_new_setter, team = choose_and_remove(next_setter, team)
-    next_new_men, team = choose_and_remove(next_men, team)
+    team.members = np.append(team.members, chosen_player)
+    team.total_points += category.points
+    category.members = category.members[category.members != chosen_player]
 
-    combined_category = next_new_setter + next_new_men
+    return category, team
+
+
+def create_fixture(players):
+    team = Team([],0)
     
-    for i in range(3):
-        team.append(luckydraw(combined_category))
-        combined_category = remove_called_players(combined_category, team)
+    for _ in range(6):  # team size
+        available = [p for p in players if len(p.members) > 0]
+
+        if not available:
+            break  # no players left anywhere
+
+        # Prefer larger arrays automatically
+        category = max(available, key=lambda x: len(x.members))
+
+        category, team = choose_and_remove(category, team)
     
     return team
+
+class Tier:
+    def __init__(self, data, points):
+        # Store a NumPy array as an attribute
+        self.members = np.array(data, dtype=str)
+        self.points = points
+
+class Team:
+    def __init__(self, members, total_points):
+        self.members = np.array(members, dtype=str)
+        self.total_points = total_points
 
 def main():
     rounds = 10
     teams = []
 
-    # new_women, new_setter, new_men, team = create_fixture(women, setter, men, team)
-    # teams.append(team)
     for j in range(math.ceil(rounds/4)):
-    # for j in range(rounds/3):
-        men = ['alif', 'ba', 'ta', 'tha', 'jeem', 'ha', 'kha', 'dal', 'thal', 'ra', 'zay']
-        women = ['meem', 'noon', 'hana', 'waw', 'ya']
-        setter = ['ali', 'abu', 'ahok', 'mimi', 'noona', 'hani', 'wawa', 'zain']
-        team = []
-        for i in range(4):
-            team = create_fixture(women, setter, men, team, i+1)
+        menA = ['man1', 'man2', 'man3', 'man4']
+        menB = ['man7', 'man8', 'man9', 'man10', 'man11', 'man12', 'man13']
+        menC = ['man14', 'man15', 'man16', 'man17', 'man18']
+        womenA = ['woman1'] #, 'woman2', 'woman3', 'woman4'
+        womenB = ['woman7', 'woman8']#, 'woman9', 'woman10'
+        setter = ['setter1', 'setter2', 'setter3', 'setter4', 'setter5']
+
+        TierAMen = Tier(menA, 3)
+        TierBMen = Tier(menB, 2)
+        TierCMen = Tier(menC, 1)
+        TierSetter = Tier(setter, 3)
+        TierAWomen = Tier(womenA, 2)
+        TierBWomen = Tier(womenB, 1)
+
+        players = [TierAMen, TierBMen, TierCMen, TierSetter, TierAWomen, TierBWomen]
+        total_teams = int((len(menA)+len(menB)+len(menC)+len(womenA)+len(womenB)+len(setter))/6)
+        for i in range(total_teams):
+            team = create_fixture(players)
             teams.append(team)
 
     for index, team in enumerate(teams):
-        print(f"Team {index+1} : ")
-        print(team)
+        print(f"Team {index+1} : (points value at: {team.total_points})")
+        print(team.members)
         print("\n")
 
 main()
