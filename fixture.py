@@ -1,5 +1,8 @@
 import random, math
 import numpy as np
+import pandas as pd
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 
 def luckydraw(category):
     if len(category.members) == 0:
@@ -51,12 +54,12 @@ def main():
     teams = []
 
     for j in range(math.ceil(rounds/4)):
-        menA = ['man1', 'man2', 'man3', 'man4']
-        menB = ['man7', 'man8', 'man9', 'man10', 'man11', 'man12', 'man13']
-        menC = ['man14', 'man15', 'man16', 'man17', 'man18']
-        womenA = ['woman1'] #, 'woman2', 'woman3', 'woman4'
-        womenB = ['woman7', 'woman8']#, 'woman9', 'woman10'
-        setter = ['setter1', 'setter2', 'setter3', 'setter4', 'setter5']
+        menA = ['Arif', 'Nysh', 'Jad']
+        menB = ['Idlan', 'Fahmi', 'adly', 'Irwan', 'Dan', 'Lan', 'Jabba', 'Haikal']
+        menC = ['Rhulz', 'yeng', 'Paan', 'amsyar', 'Izz', 'Odeng']
+        womenA = ['Yana', 'Hana'] #, 'woman2', 'woman3', 'woman4'
+        womenB = ['Taca']#, 'woman9', 'woman10'
+        setter = ['mirul', 'ikmal', 'Alif', 'mkA']
 
         TierAMen = Tier(menA, 3)
         TierBMen = Tier(menB, 2)
@@ -75,5 +78,47 @@ def main():
         print(f"Team {index+1} : (points value at: {team.total_points})")
         print(team.members)
         print("\n")
+
+    # Export teams to Excel on a single sheet with two teams per row
+    excel_file = '04_01_2026_Fixtures.xlsx'
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "All Teams"
+    
+    current_row = 1
+    
+    for idx in range(0, len(teams), 2):
+        # Left team (odd team number)
+        team1 = teams[idx]
+        ws[f'A{current_row}'] = f"Team {idx+1}"
+        ws[f'A{current_row}'].font = Font(bold=True, size=12)
+        row_offset = 1
+        
+        for player in team1.members:
+            ws[f'A{current_row + row_offset}'] = player
+            ws[f'A{current_row + row_offset}'].alignment = Alignment(horizontal='center', vertical='center')
+            row_offset += 1
+        
+        max_height = row_offset
+        
+        # Right team (even team number) - if it exists
+        if idx + 1 < len(teams):
+            team2 = teams[idx + 1]
+            ws[f'B{current_row}'] = f"Team {idx+2}"
+            ws[f'B{current_row}'].font = Font(bold=True, size=12)
+            row_offset = 1
+            
+            for player in team2.members:
+                ws[f'B{current_row + row_offset}'] = player
+                ws[f'B{current_row + row_offset}'].alignment = Alignment(horizontal='center', vertical='center')
+                row_offset += 1
+            
+            max_height = max(max_height, row_offset)
+        
+        # Move to next row pair
+        current_row += max_height + 1
+    
+    wb.save(excel_file)
+    print(f"\nTeams exported to {excel_file}")
 
 main()
