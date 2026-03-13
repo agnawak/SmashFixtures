@@ -1,0 +1,4 @@
+.vene/
+.vscode/
+*.xlsx
+tmp.py
