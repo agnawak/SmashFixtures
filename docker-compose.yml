@@ -1,0 +1,15 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - API_KEY=${API_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    restart: unless-stopped
+    tunnel:
+      image: cloudflare/cloudflared:latest
+      command: tunnel run
+      environment:
+        - TUNNEL_TOKEN=<your-tunnel-token>
+      restart: unless-stopped

@@ -1,4 +1,4 @@
-import random, math
+import random, math, io
 import numpy as np
 import pandas as pd
 from openpyxl import Workbook, load_workbook
@@ -206,13 +206,7 @@ def read_tier_list(excel_file):
         'setter': setter
     }
 
-def main():
-    # Read tier list from Excel file
-    tier_list_file = 'tier_list.xlsx'  # Change this to your tier list file name
-    tier_data = read_tier_list(tier_list_file)
-    
-    # Create player info mapping for colors (player_name -> {gender, tier})
-    # Setters are also in the tier lists, so they'll get their colors from their respective tiers
+def _build_player_info(tier_data):
     player_info = {}
     for name in tier_data['menA']:
         player_info[name] = {'gender': 'men', 'tier': 'A'}
@@ -226,173 +220,130 @@ def main():
         player_info[name] = {'gender': 'women', 'tier': 'B'}
     for name in tier_data['wildcard']:
         player_info[name] = {'gender': 'wildcard', 'tier': 'W'}
-    
-    # Ensure all setters are in player_info (they should already be in tier lists)
-    # This is a safety check in case a setter is listed but not in any tier
     for setter_name in tier_data['setter']:
         if setter_name not in player_info:
-            # Default to wildcard if setter is not found in any tier
             player_info[setter_name] = {'gender': 'wildcard', 'tier': 'W'}
-    
-    # Generate at least 10 groups (20 teams minimum)
-    min_groups = 10
-    teams_per_batch = 4  # Create 4 teams per batch, then reset setters
+    return player_info
+
+
+def _generate_all_teams(tier_data, num_teams=4, min_groups=10):
     all_teams = []
-    
-    # Calculate how many batches we need (each batch = 4 teams = 2 groups)
-    batches_needed = math.ceil(min_groups / 2)  # 2 groups per batch
+    batches_needed = math.ceil(min_groups / 2)
 
     for batch_num in range(batches_needed):
-        # Create copies for this batch - setters are reset every 4 teams
-        menA = tier_data['menA'].copy()
-        menB = tier_data['menB'].copy()
-        menC = tier_data['menC'].copy()
-        womenA = tier_data['womenA'].copy()
-        womenB = tier_data['womenB'].copy()
-        wildcard = tier_data['wildcard'].copy()
-        setter = tier_data['setter'].copy()
-
-        # Create Tier objects with new point system
-        # Men A - 4pt, Men B - 3pt, Women A - 3pt, Men C - 2pt, Women B - 2pt, Wildcard - 1pt
-        TierMenA = Tier(menA, 4)
-        TierMenB = Tier(menB, 3)
-        TierWomenA = Tier(womenA, 3)
-        TierMenC = Tier(menC, 2)
-        TierWomenB = Tier(womenB, 2)
-        TierWildcard = Tier(wildcard, 1)
-
-        # Create players dictionary for easier management
         players_dict = {
-            'menA': TierMenA,
-            'menB': TierMenB,
-            'menC': TierMenC,
-            'womenA': TierWomenA,
-            'womenB': TierWomenB,
-            'wildcard': TierWildcard
+            'menA': Tier(tier_data['menA'].copy(), 4),
+            'menB': Tier(tier_data['menB'].copy(), 3),
+            'menC': Tier(tier_data['menC'].copy(), 2),
+            'womenA': Tier(tier_data['womenA'].copy(), 3),
+            'womenB': Tier(tier_data['womenB'].copy(), 2),
+            'wildcard': Tier(tier_data['wildcard'].copy(), 1),
         }
-        
-        # Create 4 teams per batch
-        num_teams = 4
-        
-        # Create balanced teams
+        setter = tier_data['setter'].copy()
         teams = create_balanced_teams(players_dict, setter, num_teams)
         all_teams.extend(teams)
 
-    # Display teams
-    for index, team in enumerate(all_teams):
-        print(f"Team {index+1} : (points value at: {team.total_points})")
-        print(team.members)
-        print("\n")
+    return all_teams
 
-    # Export teams to Excel with grouped formatting
-    excel_file = 'Fixtures.xlsx'
+
+def _export_teams_to_excel(all_teams, player_info):
     wb = Workbook()
     ws = wb.active
     ws.title = "All Teams"
-    
-    # Define color scheme
+
     colors = {
-        'menA': 'b0e0e6',      # Dark blue for Men A
-        'menB': 'afeeee',      # Medium blue for Men B
-        'menC': 'e0ffff',      # Light blue for Men C
-        'womenA': 'ffd6dc',    # Dark pink for Women A
-        'womenB': 'ffe6e9',    # Light pink for Women B
-        'wildcard': 'E6E6FA'   # Lavender for Wildcard
+        'menA': 'b0e0e6',
+        'menB': 'afeeee',
+        'menC': 'e0ffff',
+        'womenA': 'ffd6dc',
+        'womenB': 'ffe6e9',
+        'wildcard': 'E6E6FA'
     }
-    
+
     def get_player_color(player_name):
-        """Get the fill color for a player based on their gender and tier"""
         if player_name not in player_info:
             return None
-        
         info = player_info[player_name]
-        gender = info['gender']
-        tier = info['tier']
-        
-        # if gender == 'men':
-        #     if tier == 'A':
-        #         return colors['menA']
-        #     elif tier == 'B':
-        #         return colors['menB']
-        #     elif tier == 'C':
-        #         return colors['menC']
-        # elif gender == 'women':
-        #     if tier == 'A':
-        #         return colors['womenA']
-        #     elif tier == 'B':
-        #         return colors['womenB']
-        # elif gender == 'wildcard':
-        #     return colors['wildcard']
-        
+        # Color coding currently disabled in original code
         return None
-    
+
     def header_cell(mcells, h1, text, team_nums, row, col, team_data):
-        """
-        Create a merged header cell and add team data below it.
-        
-        Args:
-            mcells: Cell range to merge (e.g., 'B5:D5')
-            h1: Header cell reference (e.g., 'B5')
-            text: Header text (e.g., 'Group 1')
-            team_nums: List of team numbers for column headers
-            row: Starting row for column headers
-            col: Starting column
-            team_data: List of teams to display
-        """
         ws.merge_cells(mcells)
         ws[h1] = text
         ws[h1].font = Font(bold=True, size=12)
         ws[h1].alignment = Alignment(horizontal='center')
 
-        # Add column headers with points
-        # \n({team_data[i].total_points}pts)
-        headers = [""] + [f"Team {num}" 
-                         for i, num in enumerate(team_nums)]
+        headers = [""] + [f"Team {num}" for i, num in enumerate(team_nums)]
         for count, header in enumerate(headers):
             cell = ws.cell(row=row, column=col + count)
             cell.value = header
             cell.font = Font(bold=True)
             cell.alignment = Alignment(horizontal='center', wrap_text=True)
-        
-        # Add team data below headers
+
         max_players = max(len(team.members) for team in team_data) if team_data else 0
-        
+
         for player_idx in range(max_players):
             ws.cell(row=row + 1 + player_idx, column=col).value = f"{player_idx + 1}"
             ws.cell(row=row + 1 + player_idx, column=col).font = Font(bold=True)
             ws.cell(row=row + 1 + player_idx, column=col).alignment = Alignment(horizontal='center')
-            
+
             for team_idx, team in enumerate(team_data):
                 if player_idx < len(team.members):
                     cell = ws.cell(row=row + 1 + player_idx, column=col + 1 + team_idx)
                     player_name = team.members[player_idx]
                     cell.value = player_name
                     cell.alignment = Alignment(horizontal='center')
-                    
-                    # Apply color based on player tier and gender
+
                     color = get_player_color(player_name)
                     if color:
                         cell.fill = PatternFill(start_color=color, end_color=color, fill_type='solid')
-    
-    # Group teams by pairs (2 teams per group) - original layout
+
     teams_per_group = 2
     groups = [all_teams[i:i + teams_per_group] for i in range(0, len(all_teams), teams_per_group)]
-    
+
     max_players = max(len(team.members) for team in all_teams) if all_teams else 6
-    row_spacing = max_players + 3  # Add space for header, column headers, and a blank row
-    
+    row_spacing = max_players + 3
+
     for group_idx, group in enumerate(groups):
         row = 2 + (group_idx // 2) * row_spacing
         col = 2 + (group_idx % 2) * 4
         group_num = group_idx + 1
         team_nums = [group_idx * teams_per_group + 1 + i for i in range(len(group))]
-        
+
         cell_ref = f"{chr(64 + col)}{row}:{chr(64 + col + len(group))}{row}"
         header_ref = f"{chr(64 + col)}{row}"
-        
-        header_cell(cell_ref, header_ref, f"Group {group_num}", team_nums, row + 1, col, group)
-    
-    wb.save(excel_file)
-    print(f"\nTeams exported to {excel_file}")
 
-main()
+        header_cell(cell_ref, header_ref, f"Group {group_num}", team_nums, row + 1, col, group)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
+
+
+def generate_fixtures(excel_input, num_teams=4, min_groups=10):
+    """
+    Main entry point: accepts an Excel file (path or bytes), generates
+    balanced team fixtures, and returns the output Excel file as bytes.
+    """
+    if isinstance(excel_input, (bytes, bytearray)):
+        excel_input = io.BytesIO(excel_input)
+
+    tier_data = read_tier_list(excel_input)
+    player_info = _build_player_info(tier_data)
+    all_teams = _generate_all_teams(tier_data, num_teams, min_groups)
+    return _export_teams_to_excel(all_teams, player_info)
+
+
+def main():
+    tier_list_file = 'tier_list.xlsx'
+    output_bytes = generate_fixtures(tier_list_file)
+
+    output_file = 'Fixtures.xlsx'
+    with open(output_file, 'wb') as f:
+        f.write(output_bytes)
+    print(f"Teams exported to {output_file}")
+
+
+if __name__ == "__main__":
+    main()
