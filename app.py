@@ -29,6 +29,9 @@ async def verify_api_key(key: str = Security(api_key_header)):
     if not secrets.compare_digest(key, API_KEY):
         raise HTTPException(status_code=403, detail="Invalid API key")
 
+@app.get("/")
+def root():
+    return {"status": "ok"}
 
 @app.post("/generate", dependencies=[Depends(verify_api_key)])
 async def generate(

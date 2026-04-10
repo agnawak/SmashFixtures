@@ -2,3 +2,5 @@
 .vscode/
 *.xlsx
 tmp.py
+.env
+sec

@@ -7,9 +7,11 @@ services:
       - API_KEY=${API_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     restart: unless-stopped
-    tunnel:
-      image: cloudflare/cloudflared:latest
-      command: tunnel run
-      environment:
-        - TUNNEL_TOKEN=<your-tunnel-token>
-      restart: unless-stopped
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=eyJhIjoiZWE0NWUwYWU0ZWZiODg5OWJjZDMxMWFmOGFmNTY3ZjAiLCJ0IjoiMjI4YjhhYzktZDQzYy00NGY0LTgxNTEtYjMxY2I0ZTEyNTEyIiwicyI6Ik5tRXhPVFZtWTJZdE5Ea3dOeTAwTVdFM0xUazNPVEl0WVRNMlpEVTNNV0UzTTJNNFltWTROR0UxWkdNdE5ETmhPQzAwWkdNNExUaGhPV0l0WXpBMU9EQmtZVFU1T1dRMSJ9
+    depends_on:
+      - api
+    restart: unless-stopped
