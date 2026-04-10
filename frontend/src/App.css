@@ -1,0 +1,104 @@
+.card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-top: 3rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin-bottom: 0.25rem;
+}
+
+.subtitle {
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+input[type='text'],
+input[type='password'],
+input[type='number'] {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus {
+  border-color: #3b82f6;
+}
+
+input[type='file'] {
+  padding: 0.5rem 0;
+  color: #94a3b8;
+}
+
+input[type='file']::file-selector-button {
+  background: #334155;
+  border: none;
+  border-radius: 6px;
+  padding: 0.45rem 0.9rem;
+  color: #e2e8f0;
+  cursor: pointer;
+  margin-right: 0.75rem;
+  font-size: 0.85rem;
+}
+
+button {
+  margin-top: 0.5rem;
+  background: #3b82f6;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.msg {
+  margin-top: 1rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.success {
+  background: #064e3b;
+  color: #6ee7b7;
+}
+
+.error {
+  background: #7f1d1d;
+  color: #fca5a5;
+}

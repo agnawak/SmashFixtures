@@ -7,11 +7,21 @@ services:
       - API_KEY=${API_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     restart: unless-stopped
+  fixtureui:
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://api:8000}
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
   tunnel:
     image: cloudflare/cloudflared:latest
     command: tunnel --no-autoupdate run
     environment:
-      - TUNNEL_TOKEN=eyJhIjoiZWE0NWUwYWU0ZWZiODg5OWJjZDMxMWFmOGFmNTY3ZjAiLCJ0IjoiMjI4YjhhYzktZDQzYy00NGY0LTgxNTEtYjMxY2I0ZTEyNTEyIiwicyI6Ik5tRXhPVFZtWTJZdE5Ea3dOeTAwTVdFM0xUazNPVEl0WVRNMlpEVTNNV0UzTTJNNFltWTROR0UxWkdNdE5ETmhPQzAwWkdNNExUaGhPV0l0WXpBMU9EQmtZVFU1T1dRMSJ9
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
     depends_on:
       - api
     restart: unless-stopped
