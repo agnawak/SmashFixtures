@@ -335,6 +335,172 @@ def generate_fixtures(excel_input, num_teams=4, min_groups=10):
     return _export_teams_to_excel(all_teams, player_info)
 
 
+def create_custom_teams(players_dict, setters_list, num_teams, players_per_team,
+                        use_setters=True, use_tierlists=True):
+    """
+    Create balanced teams with a configurable number of players per team.
+    - use_setters: if True, assigns one setter per team first
+    - use_tierlists: if True, balances teams by tier points and distributes women
+                     equally; if False, randomly distributes all players
+    """
+    teams = [Team([], 0) for _ in range(num_teams)]
+    women_per_team = [0] * num_teams
+
+    # Step 1: Distribute setters (1 per team) if requested
+    if use_setters and setters_list:
+        setter_pool = setters_list.copy()
+        random.shuffle(setter_pool)
+        for team_idx in range(min(num_teams, len(setter_pool))):
+            setter_name = setter_pool[team_idx]
+            setter_points = 0
+            is_woman = False
+            for tier_name, tier_obj in players_dict.items():
+                if setter_name in tier_obj.members:
+                    if use_tierlists:
+                        setter_points = tier_obj.points
+                    if tier_name in ['womenA', 'womenB']:
+                        is_woman = True
+                    tier_obj.members = tier_obj.members[tier_obj.members != setter_name]
+                    break
+            teams[team_idx].members = np.append(teams[team_idx].members, setter_name)
+            teams[team_idx].total_points += setter_points
+            if is_woman:
+                women_per_team[team_idx] += 1
+
+    if use_tierlists:
+        # Step 2: Distribute women equally across teams
+        for tier_name in ['womenA', 'womenB']:
+            if tier_name not in players_dict:
+                continue
+            tier = players_dict[tier_name]
+            while len(tier.members) > 0:
+                available = [i for i in range(num_teams) if len(teams[i].members) < players_per_team]
+                if not available:
+                    break
+                team_idx = min(available, key=lambda i: women_per_team[i])
+                chosen = luckydraw(tier)
+                if chosen is None:
+                    break
+                teams[team_idx].members = np.append(teams[team_idx].members, chosen)
+                teams[team_idx].total_points += tier.points
+                tier.members = tier.members[tier.members != chosen]
+                women_per_team[team_idx] += 1
+
+        # Step 3: Fill remaining spots with tier-based point balancing
+        remaining_tiers = ['menA', 'menB', 'menC', 'wildcard']
+        while True:
+            if all(len(team.members) >= players_per_team for team in teams):
+                break
+            available_tiers = [t for t in remaining_tiers
+                               if t in players_dict and len(players_dict[t].members) > 0]
+            if not available_tiers:
+                break
+            open_teams = [i for i, team in enumerate(teams) if len(team.members) < players_per_team]
+            team_idx = min(open_teams, key=lambda i: teams[i].total_points)
+            current_avg = sum(t.total_points for t in teams) / num_teams
+            if teams[team_idx].total_points < current_avg:
+                tier_name = max(available_tiers, key=lambda t: players_dict[t].points)
+            else:
+                tier_name = min(available_tiers, key=lambda t: players_dict[t].points)
+            tier = players_dict[tier_name]
+            chosen = luckydraw(tier)
+            if chosen is None:
+                continue
+            teams[team_idx].members = np.append(teams[team_idx].members, chosen)
+            teams[team_idx].total_points += tier.points
+            tier.members = tier.members[tier.members != chosen]
+    else:
+        # No tierlists: pool everyone and randomly assign
+        all_tier_names = ['menA', 'menB', 'menC', 'womenA', 'womenB', 'wildcard']
+        pool = []
+        for tier_name in all_tier_names:
+            if tier_name in players_dict:
+                pool.extend(players_dict[tier_name].members.tolist())
+        random.shuffle(pool)
+        for player in pool:
+            if all(len(team.members) >= players_per_team for team in teams):
+                break
+            open_teams = [i for i, team in enumerate(teams) if len(team.members) < players_per_team]
+            team_idx = min(open_teams, key=lambda i: len(teams[i].members))
+            teams[team_idx].members = np.append(teams[team_idx].members, player)
+
+    return teams
+
+
+def _generate_all_teams_custom(tier_data, players_per_team=7, min_groups=10,
+                                use_setters=True, use_tierlists=True):
+    # Total players = all tier members + setters (if not used as a separate role)
+    tier_members = (
+        tier_data['menA'] + tier_data['menB'] + tier_data['menC'] +
+        tier_data['womenA'] + tier_data['womenB'] + tier_data['wildcard']
+    )
+    setter_members = tier_data['setter']
+    if use_setters:
+        total_players = len(tier_members) + len(setter_members)
+    else:
+        # Setters will be merged into wildcard; avoid double-counting players
+        # who appear in both a tier and the setter list
+        tier_set = set(tier_members)
+        extra_setters = [s for s in setter_members if s not in tier_set]
+        total_players = len(tier_members) + len(extra_setters)
+
+    num_teams = total_players // players_per_team
+    if num_teams < 2:
+        raise ValueError(
+            f"Not enough players ({total_players}) for {players_per_team} players per team. "
+            f"Need at least {2 * players_per_team} players."
+        )
+
+    # How many batches needed to reach min_groups (groups are pairs of teams)
+    batches_needed = math.ceil(min_groups * 2 / num_teams)
+
+    all_teams = []
+    for _ in range(batches_needed):
+        players_dict = {
+            'menA':    Tier(tier_data['menA'].copy(),    4),
+            'menB':    Tier(tier_data['menB'].copy(),    3),
+            'menC':    Tier(tier_data['menC'].copy(),    2),
+            'womenA':  Tier(tier_data['womenA'].copy(),  3),
+            'womenB':  Tier(tier_data['womenB'].copy(),  2),
+            'wildcard': Tier(tier_data['wildcard'].copy(), 1),
+        }
+        if not use_setters:
+            # Merge setters (not already in a tier) into wildcard pool
+            tier_set = set(tier_data['menA'] + tier_data['menB'] + tier_data['menC'] +
+                           tier_data['womenA'] + tier_data['womenB'] + tier_data['wildcard'])
+            extra = [s for s in setter_members if s not in tier_set]
+            if extra:
+                players_dict['wildcard'].members = np.append(
+                    players_dict['wildcard'].members, extra)
+
+        setter = setter_members.copy() if use_setters else []
+        teams = create_custom_teams(players_dict, setter, num_teams, players_per_team,
+                                    use_setters, use_tierlists)
+        all_teams.extend(teams)
+
+    return all_teams, num_teams
+
+
+def generate_custom_fixtures(excel_input, players_per_team=7, min_groups=10,
+                              use_setters=True, use_tierlists=True):
+    """
+    Custom fixture entry point: team size and number of teams are derived from
+    players_per_team and the total number of players in the uploaded sheet.
+    - players_per_team: how many players per team (e.g. 7)
+    - min_groups: minimum number of fixture groups (pairs) to generate
+    - use_setters: assign one setter per team
+    - use_tierlists: balance teams by tier points
+    """
+    if isinstance(excel_input, (bytes, bytearray)):
+        excel_input = io.BytesIO(excel_input)
+
+    tier_data = read_tier_list(excel_input)
+    player_info = _build_player_info(tier_data)
+    all_teams, _ = _generate_all_teams_custom(
+        tier_data, players_per_team, min_groups, use_setters, use_tierlists)
+    return _export_teams_to_excel(all_teams, player_info)
+
+
 def main():
     tier_list_file = 'tier_list.xlsx'
     output_bytes = generate_fixtures(tier_list_file)
