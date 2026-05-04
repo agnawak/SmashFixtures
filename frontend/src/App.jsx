@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import './App.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8001' : '/api');
 
 function AuthForm({ onAuth }) {
   const [username, setUsername] = useState('');
@@ -12,6 +12,18 @@ function AuthForm({ onAuth }) {
 
   const handleAuth = async (e) => {
     e.preventDefault();
+
+    if (password.length <6){
+        setErrorMsg('Password must be at least 6 characters.');
+        setStatus('error');
+        return;
+    }
+    if (username.length <3){
+        setErrorMsg('Username must be atleas 3 characters.');
+        setSTatus('error');
+        return;
+    }
+
     setStatus('loading');
     setErrorMsg('');
     try {
