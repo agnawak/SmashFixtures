@@ -7,10 +7,12 @@ from fastapi.responses import StreamingResponse
 from fastapi.security import APIKeyHeader
 from sqlalchemy.orm import Session
 
-from backend.config import ALLOWED_ORIGINS, APP_PASSWORD, APP_USERNAME, LEGACY_API_KEY
+import google.generativeai as genai
+
+from backend.config import ALLOWED_ORIGINS, APP_PASSWORD, APP_USERNAME, GEMINI_API_KEY, LEGACY_API_KEY
 from backend.database import Base, SessionLocal, engine, get_db
 from backend.models import User
-from backend.schemas import AuthRequest, AuthResponse, SignupResponse
+from backend.schemas import AuthRequest, AuthResponse, ChatRequest, ChatResponse, SignupResponse
 from backend.security import generate_api_key, hash_password, verify_password
 from fixture import generate_custom_fixtures, generate_fixtures
 
@@ -100,6 +102,18 @@ def login(body: AuthRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     return {"api_key": user.api_key, "username": user.username}
+
+
+@app.post("/chat", response_model=ChatResponse, dependencies=[Depends(verify_api_key)])
+def chat(body: ChatRequest):
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=503, detail="Gemini API key not configured")
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    history = [{"role": m.role, "parts": [m.text]} for m in body.history]
+    session = model.start_chat(history=history)
+    response = session.send_message(body.message)
+    return {"reply": response.text}
 
 
 @app.post("/generate", dependencies=[Depends(verify_api_key)])

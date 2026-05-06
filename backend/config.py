@@ -17,3 +17,6 @@ LEGACY_API_KEY = os.environ.get("API_KEY", "")
 # Optional bootstrap admin account created on startup if missing.
 APP_USERNAME = os.environ.get("APP_USERNAME", "")
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
+
+# Gemini API key for the AI chat endpoint.
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")

@@ -1,7 +1,89 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import './App.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8001' : '/api');
+
+function ChatPage({ apiKey }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || loading) return;
+
+    const userMsg = { role: 'user', text };
+    const nextMessages = [...messages, userMsg];
+    setMessages(nextMessages);
+    setInput('');
+    setLoading(true);
+    setError('');
+
+    try {
+      const history = messages.map((m) => ({ role: m.role, text: m.text }));
+      const res = await fetch(`${API_URL}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+        body: JSON.stringify({ message: text, history }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Error ${res.status}`);
+      }
+      const { reply } = await res.json();
+      setMessages([...nextMessages, { role: 'model', text: reply }]);
+    } catch (err) {
+      setError(err.message);
+      setMessages(nextMessages.slice(0, -1));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="chat-container">
+      <div className="chat-messages">
+        {messages.length === 0 && (
+          <p className="chat-empty">Ask Gemini anything…</p>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`chat-bubble ${m.role === 'user' ? 'chat-user' : 'chat-model'}`}>
+            <span className="chat-role">{m.role === 'user' ? 'You' : 'Gemini'}</span>
+            <p>{m.text}</p>
+          </div>
+        ))}
+        {loading && (
+          <div className="chat-bubble chat-model">
+            <span className="chat-role">Gemini</span>
+            <p className="chat-typing">Thinking…</p>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+      {error && <p className="msg error" style={{ margin: '0.5rem 0' }}>{error}</p>}
+      <form className="chat-form" onSubmit={sendMessage}>
+        <input
+          type="text"
+          className="chat-input"
+          placeholder="Type a message…"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          disabled={loading}
+        />
+        <button type="submit" disabled={loading || !input.trim()} className="chat-send">
+          Send
+        </button>
+      </form>
+    </div>
+  );
+}
 
 function AuthForm({ onAuth }) {
   const [username, setUsername] = useState('');
@@ -80,6 +162,7 @@ function AuthForm({ onAuth }) {
 function App() {
   const [apiKey, setApiKey] = useState(null);
   const [currentUser, setCurrentUser] = useState('');
+  const [page, setPage] = useState('fixtures'); // 'fixtures' | 'chat'
   const [mode, setMode] = useState('standard'); // 'standard' | 'custom'
 
   // Standard mode
@@ -169,7 +252,7 @@ function App() {
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Fixture Generator{currentUser ? ` (${currentUser})` : ''}</h1>
+        <h1>{page === 'fixtures' ? `Fixture Generator${currentUser ? ` (${currentUser})` : ''}` : 'AI Chat'}</h1>
         <button
           type="button"
           onClick={() => {
@@ -181,6 +264,28 @@ function App() {
           Sign Out
         </button>
       </div>
+
+      <div className="tab-bar">
+        <button
+          type="button"
+          className={`tab-btn${page === 'fixtures' ? ' active' : ''}`}
+          onClick={() => setPage('fixtures')}
+        >
+          Fixtures
+        </button>
+        <button
+          type="button"
+          className={`tab-btn${page === 'chat' ? ' active' : ''}`}
+          onClick={() => setPage('chat')}
+        >
+          AI Chat
+        </button>
+      </div>
+
+      {page === 'chat' ? (
+        <ChatPage apiKey={apiKey} />
+      ) : (
+        <>
       <p className="subtitle">Upload a spreadsheet to generate fixtures</p>
 
       <form onSubmit={handleSubmit}>
@@ -276,6 +381,8 @@ function App() {
       )}
       {status === 'error' && (
         <p className="msg error">{errorMsg}</p>
+      )}
+        </>
       )}
     </div>
   );

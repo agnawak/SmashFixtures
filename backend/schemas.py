@@ -15,3 +15,17 @@ class SignupResponse(BaseModel):
     message: str
     api_key: str
     username: str
+
+
+class ChatMessage(BaseModel):
+    role: str  # 'user' or 'model'
+    text: str
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    history: list[ChatMessage] = []
+
+
+class ChatResponse(BaseModel):
+    reply: str

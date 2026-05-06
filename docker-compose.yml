@@ -24,6 +24,7 @@ services:
       - APP_USERNAME=${APP_USERNAME}
       - APP_PASSWORD=${APP_PASSWORD}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       db:
         condition: service_healthy
